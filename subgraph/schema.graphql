@@ -1,0 +1,87 @@
+type BarnRaise @entity {
+  # Id = 1
+  id: ID!
+  # Start time for bidding
+  bidStart: BigInt
+  # Bonus % per day for bidding early
+  bonusPerDay: BigInt
+  # Start time
+  start: BigInt!
+  # The length of the Barn Raise
+  length: BigInt!
+  # The end of the Barn Raise
+  end: BigInt!
+  # The amount that the weather steps during the Barn Raise
+  weatherStep: BigInt!
+
+  # Number of Bids
+  numberOfBids: BigInt!
+  # The total $ that were bid
+  totalBid: BigDecimal!
+  # The total $ in Bids that are sown
+  totalBidSown: BigDecimal!
+  # The total $ in Bids that are unsown
+  totalBidUnsown: BigDecimal!
+  # The total $ manually sown (excluding bids) 
+  totalUserSown: BigDecimal!
+  # The total $ sown including 
+  totalSown: BigDecimal!
+  # The total $ raised totalSown + totalBidUnsown
+  totalRaised: BigDecimal!
+}
+
+type Farmer @entity {
+  # The address of the Farmer
+  id: ID!
+  # The Bids placed by the Farmer
+  bids: [Bid!]! @derivedFrom(field: "farmer")
+  # The number of Bids
+  numberOfBids: BigInt!
+  # The number of Bids
+  totalBid: BigDecimal!
+}
+
+type Bid @entity {
+  # address-weather-idx: Bids are a unique combo of address and weather
+  id: ID!
+  # The idx of the Bid
+  idx: BigInt!
+  # The Farmer who placed the Bid.
+  farmer: Farmer!
+  # created at timestamp
+  createdAt: BigInt!
+  # last update timestamp
+  updatedAt: BigInt!
+  # The weather that the Bid is bidding on
+  weather: BigInt!
+  # The status of the Bid: 0 = active, 1 = filled, 2 = partially filled, 3 = failed
+  status: Int!
+
+  baseAmount: BigDecimal!
+  basePods: BigDecimal!
+
+  bonusPercent: BigInt! 
+  bonusAmount: BigDecimal!
+  bonusPods: BigDecimal!
+
+  totalAmount: BigDecimal!
+  totalPods: BigDecimal!
+}
+
+type Weather @entity {
+  # The weather
+  id: ID!
+  # The ids of the Bids at this weather
+  bidIds: [String!]!
+  # Number of Bids
+  numberOfBids: BigInt!
+  # The total $ that were bid
+  baseAmount: BigDecimal!
+  basePods: BigDecimal!
+
+  bonusAmount: BigDecimal!
+  bonusPods: BigDecimal!
+
+  totalAmount: BigDecimal!
+  totalPods: BigDecimal!
+}

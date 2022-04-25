@@ -1,0 +1,33 @@
+specVersion: 0.0.2
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: BarnRaise
+    network: mainnet
+    source:
+      address: "0xAd0448bf19cb192997FEaC1D16CDe2ea700E9f96"
+      abi: BarnRaise
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - CreateBarnRaise
+        - CreateBid
+        - OwnershipTransferred
+        - Sow
+        - UpdateBid
+      abis:
+        - name: BarnRaise
+          file: ./abis/BarnRaise.json
+      eventHandlers:
+        - event: CreateBarnRaise(uint256,uint256,uint256,uint256,uint256,uint256)
+          handler: handleCreateBarnRaise
+        - event: CreateBid(indexed address,uint256,uint256,uint256,uint256)
+          handler: handleCreateBid
+        - event: Sow(indexed address,uint256,uint256)
+          handler: handleSow
+        - event: UpdateBid(indexed address,uint256,uint256,uint256,uint256,uint256,uint256,uint256)
+          handler: handleUpdateBid
+      file: ./src/mapping.ts
