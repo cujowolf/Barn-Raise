@@ -52,19 +52,23 @@ type Bid @entity {
   createdAt: BigInt!
   # last update timestamp
   updatedAt: BigInt!
-  # The weather that the Bid is bidding on
-  weather: BigInt!
   # The status of the Bid: 0 = active, 1 = filled, 2 = partially filled, 3 = failed
   status: Int!
+  # The amount in the Bid.
+  amount: BigDecimal!
 
-  baseAmount: BigDecimal!
+  # The Weather that the Bid is bidding on
+  weather: BigInt!
+  # The Bonus Weather from Bidding early
+  bonusWeather: BigInt! 
+  # The sum of the base and bonus Weather
+  totalWeather: BigInt!
+
+  # The base amount of Pods (excluding bonus)
   basePods: BigDecimal!
-
-  bonusPercent: BigInt! 
-  bonusAmount: BigDecimal!
+  # The number of Bonus Pods
   bonusPods: BigDecimal!
-
-  totalAmount: BigDecimal!
+  # The total amount of Pods.
   totalPods: BigDecimal!
 }
 
@@ -75,13 +79,11 @@ type Weather @entity {
   bidIds: [String!]!
   # Number of Bids
   numberOfBids: BigInt!
-  # The total $ that were bid
-  baseAmount: BigDecimal!
+  
+  # The amount of tokens at the given Weather.
+  amount: BigDecimal!
+
   basePods: BigDecimal!
-
-  bonusAmount: BigDecimal!
   bonusPods: BigDecimal!
-
-  totalAmount: BigDecimal!
   totalPods: BigDecimal!
 }

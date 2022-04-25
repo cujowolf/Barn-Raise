@@ -41,14 +41,14 @@ export function handleCreateBid(event: CreateBid): void {
     event.params.bonus
   );
 
-  farmer.totalBid = farmer.totalBid.plus(bid.baseAmount)
+  farmer.totalBid = farmer.totalBid.plus(bid.amount)
 
   farmer.numberOfBids = farmer.numberOfBids.plus(ONE_BI)
 
   barnRaise.numberOfBids = barnRaise.numberOfBids.plus(ONE_BI)
-  barnRaise.totalRaised = barnRaise.totalRaised.plus(bid.baseAmount)
-  barnRaise.totalBid = barnRaise.totalBid.plus(bid.baseAmount)
-  barnRaise.totalBidUnsown = barnRaise.totalBidUnsown.plus(bid.baseAmount)
+  barnRaise.totalRaised = barnRaise.totalRaised.plus(bid.amount)
+  barnRaise.totalBid = barnRaise.totalBid.plus(bid.amount)
+  barnRaise.totalBidUnsown = barnRaise.totalBidUnsown.plus(bid.amount)
 
   barnRaise.save()
   farmer.save()
@@ -68,22 +68,18 @@ export function handleUpdateBid(event: UpdateBid): void {
 
   let updatedAmount = biToBD(event.params.updatedAmount, BI_18)
   oldBid.updatedAt = event.block.timestamp
-  oldBid.baseAmount = oldBid.baseAmount.minus(updatedAmount)
-  oldBid.basePods = amountToPods(oldBid.baseAmount, event.params.prevWeather)
-  oldBid.bonusAmount = amountToBonus(oldBid.baseAmount, oldBid.bonusPercent)
-  oldBid.bonusPods = amountToPods(oldBid.bonusAmount, event.params.prevWeather)
-  oldBid.totalAmount = oldBid.baseAmount.plus(oldBid.bonusAmount)
+  oldBid.amount = oldBid.amount.minus(updatedAmount)
+  oldBid.basePods = amountToPods(oldBid.amount, event.params.prevWeather)
+  oldBid.bonusPods = amountToPods(oldBid.amount, oldBid.bonusWeather)
   oldBid.totalPods = oldBid.basePods.plus(oldBid.bonusPods)
 
-  oldWeather.baseAmount = oldWeather.baseAmount.minus(updatedAmount)
-  oldWeather.basePods = amountToPods(oldWeather.baseAmount, event.params.prevWeather)
-  oldWeather.bonusAmount = oldWeather.bonusAmount.minus(amountToBonus(updatedAmount, oldBid.bonusPercent))
-  oldWeather.bonusPods = amountToPods(oldWeather.bonusAmount, event.params.prevWeather)
-  oldWeather.totalAmount = oldWeather.baseAmount.plus(oldWeather.bonusAmount)
+  oldWeather.amount = oldWeather.amount.minus(updatedAmount)
+  oldWeather.basePods = amountToPods(oldWeather.amount, event.params.prevWeather)
+  oldWeather.bonusPods = oldWeather.bonusPods.minus(amountToBonusPods(updatedAmount, oldBid.bonusWeather))
   oldWeather.totalPods = oldWeather.basePods.plus(oldWeather.bonusPods)
 
   // If we are splitting the bid, then we add a new bid.
-  if (oldBid.baseAmount.gt(ZERO_BD)) {
+  if (oldBid.amount.gt(ZERO_BD)) {
     barnRaise.numberOfBids = barnRaise.numberOfBids.plus(ONE_BI)
     oldBid.save()
   } else {
@@ -126,23 +122,22 @@ function createBid(timestamp: BigInt, amount: BigDecimal, account: Address, wea:
   bid.farmer = account.toHexString()
   bid.createdAt = timestamp
   bid.updatedAt = timestamp
-  bid.weather = wea
   bid.status = BidStatus.ACTIVE
 
-  bid.baseAmount = amount
-  bid.basePods = amountToPods(bid.baseAmount, wea)
-  bid.bonusPercent = bonus
-  bid.bonusAmount = amountToBonus(bid.baseAmount, bonus)
-  bid.bonusPods = amountToPods(bid.bonusAmount, wea)
-  bid.totalAmount = bid.baseAmount.plus(bid.bonusAmount)
+  bid.amount = amount
+
+  bid.weather = wea
+  bid.bonusWeather = bonus
+  bid.totalWeather = wea.plus(bonus)
+
+  bid.basePods = amountToPods(bid.amount, wea)
+  bid.bonusPods = amountToBonusPods(bid.amount, bonus)
   bid.totalPods = bid.basePods.plus(bid.bonusPods)
 
   weather.numberOfBids = weather.numberOfBids.plus(ONE_BI)
-  weather.baseAmount = weather.baseAmount.plus(bid.baseAmount)
+  weather.amount = weather.amount.plus(bid.amount)
   weather.basePods = weather.basePods.plus(bid.basePods)
-  weather.bonusAmount = weather.bonusAmount.plus(bid.bonusAmount)
   weather.bonusPods = weather.bonusPods.plus(bid.bonusPods)
-  weather.totalAmount = weather.totalAmount.plus(bid.totalAmount)
   weather.totalPods = weather.totalPods.plus(bid.totalPods)
 
   let bidIds = weather.bidIds
@@ -168,7 +163,7 @@ function getWeather(w: BigInt) : Weather {
   return weather as Weather
 }
 
-function amountToBonus(amount: BigDecimal, bonus: BigInt): BigDecimal {
+function amountToBonusPods(amount: BigDecimal, bonus: BigInt): BigDecimal {
   return amount.times(biToBD(bonus, TWO_BI))
 }
 
