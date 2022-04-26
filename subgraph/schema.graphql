@@ -58,11 +58,11 @@ type Bid @entity {
   amount: BigDecimal!
 
   # The Weather that the Bid is bidding on
-  weather: BigInt!
+  weather: Int!
   # The Bonus Weather from Bidding early
-  bonusWeather: BigInt! 
+  bonusWeather: Int!
   # The sum of the base and bonus Weather
-  totalWeather: BigInt!
+  totalWeather: Int!
 
   # The base amount of Pods (excluding bonus)
   basePods: BigDecimal!
@@ -75,6 +75,8 @@ type Bid @entity {
 type Weather @entity {
   # The weather
   id: ID!
+  # The weather as an int
+  weather: Int!
   # The ids of the Bids at this weather
   bidIds: [String!]!
   # Number of Bids

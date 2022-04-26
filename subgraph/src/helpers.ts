@@ -11,7 +11,9 @@ export let BI_18 = BigInt.fromI32(18)
 export let BI_10 = BigInt.fromI32(10)
 export let BI_6 = BigInt.fromI32(6)
 
-
+export function toBI(amount: i32): BigInt {
+  return BigInt.fromI32(amount)
+}
 export function biToBD(tokenAmount: BigInt, exchangeDecimals: BigInt): BigDecimal {
   if (exchangeDecimals == ZERO_BI) {
     return tokenAmount.toBigDecimal()

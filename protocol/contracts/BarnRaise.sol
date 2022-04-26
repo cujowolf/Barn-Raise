@@ -42,26 +42,28 @@ contract BarnRaise is Ownable {
     using SafeERC20 for IERC20;
 
     /////////////////////// TESTING //////////////////////
-    address constant public token = 0x800AC0391494384C3B6c7f0999eF2c910197c685;
-    uint256 constant public bidStart = 1650830000;
+    // address constant public custodian = 0x925753106FCdB6D2f30C3db295328a0A1c5fD1D1; // Temporary: BF Multi-sig
+    // address constant public token = 0x389781BD602A7FFCBd1464c95C48f813FF24a8C6; // Temporary: Bean Token
+    // uint256 constant public bidStart = 1650891600;
 
     /////////////////////// TESTING //////////////////////
 
+    // Bid Period Settings
+    uint256 constant public bidStart = 1651496400; // 5/2 9 AM PST
+    uint256 constant public bonusPerDay = 3;
+    uint256 constant public bidDays = 7;
+    uint256 constant public secondsPerDay = 86400;
+
     // Barn Raise Settings
-    uint256 constant public start = 1652054400; // Temporary: 5/2/2022 0:00 GMT 
+    uint256 constant public start = bidStart + bidDays * secondsPerDay; // 5/9 9 AM PST
     uint256 constant public length = 259200; // 3 days denominated in seconds. 3*24*60*60
     uint256 constant public baseWeather = 20; // Start at 20% Weather
     uint256 constant public step = 600; // 10 minutes denominated in seconds.
 
-    // Bid Period Settings
-    // uint256 constant public bidStart = 1651449600;
-    uint256 constant public bonusPerDay = 3;
-    uint256 constant public secondsPerDay = 86400;
-
     // General Settings
-    uint256 constant target = 76_000_000 * 1e18;
     address constant public custodian = 0x21DE18B6A8f78eDe6D16C50A167f6B222DC08DF7; // Temporary: BF Multi-sig
-    // address constant public token = 0x800AC0391494384C3B6c7f0999eF2c910197c685; // Temporary: Bean Token
+    address constant public token = 0xDC59ac4FeFa32293A95889Dc396682858d52e5Db; // Temporary: Bean Token
+    uint256 constant target = 76_000_000 * 1e18;
     uint256 public funded = 0; // A variable indicating if the Barn Raise as been fully funded.
 
     // Farmer => Weather => idx => amount We need to add idx in the case where a Farmer posts 2 Bids at the same Weather.

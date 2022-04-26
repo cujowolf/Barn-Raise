@@ -12,7 +12,7 @@ import {
   Farmer,
   Weather
 } from "../generated/schema"
-import { ADDRESS_ZERO, ZERO_BI, ONE_BI, ZERO_BD, ONE_BD, TWO_BI, BI_6, BI_10, BI_18, biToBD, BidStatus, EventType, EventStatus } from "./helpers"
+import { ADDRESS_ZERO, ZERO_BI, ONE_BI, ZERO_BD, ONE_BD, TWO_BI, BI_6, BI_10, BI_18, toBI, biToBD, BidStatus, EventType, EventStatus } from "./helpers"
 
 export function handleCreateBarnRaise(event: CreateBarnRaise): void {
   let br = BarnRaiseEntity.load('0')
@@ -70,12 +70,12 @@ export function handleUpdateBid(event: UpdateBid): void {
   oldBid.updatedAt = event.block.timestamp
   oldBid.amount = oldBid.amount.minus(updatedAmount)
   oldBid.basePods = amountToPods(oldBid.amount, event.params.prevWeather)
-  oldBid.bonusPods = amountToPods(oldBid.amount, oldBid.bonusWeather)
+  oldBid.bonusPods = amountToPods(oldBid.amount, toBI(oldBid.bonusWeather))
   oldBid.totalPods = oldBid.basePods.plus(oldBid.bonusPods)
 
   oldWeather.amount = oldWeather.amount.minus(updatedAmount)
   oldWeather.basePods = amountToPods(oldWeather.amount, event.params.prevWeather)
-  oldWeather.bonusPods = oldWeather.bonusPods.minus(amountToBonusPods(updatedAmount, oldBid.bonusWeather))
+  oldWeather.bonusPods = oldWeather.bonusPods.minus(amountToBonusPods(updatedAmount, toBI(oldBid.bonusWeather)))
   oldWeather.totalPods = oldWeather.basePods.plus(oldWeather.bonusPods)
 
   // If we are splitting the bid, then we add a new bid.
@@ -126,9 +126,9 @@ function createBid(timestamp: BigInt, amount: BigDecimal, account: Address, wea:
 
   bid.amount = amount
 
-  bid.weather = wea
-  bid.bonusWeather = bonus
-  bid.totalWeather = wea.plus(bonus)
+  bid.weather = wea.toI32()
+  bid.bonusWeather = bonus.toI32()
+  bid.totalWeather = wea.plus(bonus).toI32()
 
   bid.basePods = amountToPods(bid.amount, wea)
   bid.bonusPods = amountToBonusPods(bid.amount, bonus)
@@ -159,7 +159,11 @@ function getFarmer(address : Address) : Farmer {
 
 function getWeather(w: BigInt) : Weather {
   let weather = Weather.load(`${w}`)
-  if (weather == null) return new Weather(`${w}`)
+  if (weather == null) {
+    let wea = new Weather(`${w}`)
+    wea.weather = w.toI32()
+    return wea
+  }
   return weather as Weather
 }
 
