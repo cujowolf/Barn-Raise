@@ -64,6 +64,7 @@ contract BarnRaise is Ownable {
     address constant public custodian = 0x21DE18B6A8f78eDe6D16C50A167f6B222DC08DF7; // Temporary: BF Multi-sig
     address constant public token = 0xDC59ac4FeFa32293A95889Dc396682858d52e5Db; // Temporary: Bean Token
     uint256 constant target = 76_000_000 * 1e18;
+    uint256 constant maxWeather = 452;
     uint256 public funded = 0; // A variable indicating if the Barn Raise as been fully funded.
 
     // Farmer => Weather => idx => amount We need to add idx in the case where a Farmer posts 2 Bids at the same Weather.
@@ -142,6 +143,7 @@ contract BarnRaise is Ownable {
 
     function checkBid(uint256 weather) private view returns (uint256 w, uint256 b) {
         require(biddingStarted() && !ended(), "Barn Raise: Bidding not active.");
+        require(weather <= maxWeather, "Barn Raise: Weather too high.");
         w = getMaxWeather(weather);
         b = getBonus();
     }
