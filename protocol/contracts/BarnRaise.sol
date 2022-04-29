@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ISwapRouter.sol";
+import "./IQuoter.sol";
 import "./IWETH.sol";
 
 /**
@@ -54,14 +55,21 @@ contract BarnRaise is Ownable, ReentrancyGuard {
 
     using SafeERC20 for IERC20;
 
-    /////////////////////// TESTING //////////////////////
-    address constant public custodian = 0x925753106FCdB6D2f30C3db295328a0A1c5fD1D1; // Temporary: BF Multi-sig
-    uint256 constant public bidStart = 1650891600;
+    /////////////////////// RINKEBY //////////////////////
 
-    /////////////////////// TESTING //////////////////////
+    // uint256 constant public bidStart = 1650891600;
+    // address constant public USDC = 0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b; // Rinkeby
+    // address constant WETH        = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
+
+    /////////////////////// MAINNET //////////////////////
+
+    uint256 constant public bidStart = 1651496400; // 5/2 9 AM PST
+    address constant public WETH     = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant public USDC     = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+    //////////////////////////////////////////////////////
 
     // Bid Period Settings
-    // uint256 constant public bidStart      = 1651496400; // 5/2 9 AM PST
     uint256 constant public bonusPerDay   = 3;
     uint256 constant public bidDays       = 7;
     uint256 constant public secondsPerDay = 86400;
@@ -74,14 +82,13 @@ contract BarnRaise is Ownable, ReentrancyGuard {
     uint256 constant public maxWeather  = 452;
 
     // Raise Settings
-    // address constant public custodian = 0x21DE18B6A8f78eDe6D16C50A167f6B222DC08DF7; // Temporary: BF Multi-sig
+    address constant public custodian = 0x21DE18B6A8f78eDe6D16C50A167f6B222DC08DF7; // Temporary: BF Multi-sig
     uint256 constant target           = 77_000_000 * 1e18;
     uint256 constant decimals         = 6;
 
     // Uniswap Settings
     address constant SWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    address constant WETH        = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address constant USDC        = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address constant QUOTER      = 0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6;
     uint24 constant POOL_FEE     = 500;
 
     uint256 public funded = 0; // A variable indicating if the Barn Raise as been fully funded.
@@ -94,6 +101,7 @@ contract BarnRaise is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < tokens.length; i++) {
             whitelisted[tokens[i]] = 10 ** (IERC20D(tokens[i]).decimals() - decimals);
         }
+        IERC20(WETH).approve(SWAP_ROUTER, type(uint256).max);
         _transferOwnership(_msgSender());
         emit CreateBarnRaise(bidStart, bonusPerDay, start, length, step, target);
     }
@@ -103,7 +111,7 @@ contract BarnRaise is Ownable, ReentrancyGuard {
     function buyAndSow(uint256 minBuyAmount, uint256 amount) external payable nonReentrant {
         uint256 amountOut = buy(minBuyAmount);
         _sow(amount + amountOut);
-        sendToken(USDC, amount);
+        if (amount > 0) sendToken(USDC, amount);
         emit Contribution(USDC, amount + amountOut);
     }
 
@@ -122,8 +130,8 @@ contract BarnRaise is Ownable, ReentrancyGuard {
 
     function buyAndCreateBid(uint256 minBuyAmount, uint256 amount, uint256 weather) external payable nonReentrant {
         uint256 amountOut = buy(minBuyAmount);
-        sendToken(USDC, amount);
-        _createBid(amount + minBuyAmount, weather);
+        if (amount > 0) sendToken(USDC, amount);
+        _createBid(amount + amountOut, weather);
         emit Contribution(USDC, amount + amountOut);
     }
 
@@ -251,12 +259,19 @@ contract BarnRaise is Ownable, ReentrancyGuard {
 
     ///////////////////////////////////// Contributing //////////////////////////////////////////////
 
+    function whitelist(address token) external onlyOwner {
+        whitelisted[token] = 10 ** (IERC20D(token).decimals() - decimals);
+    }
+
+    function dewhitelist(address token) external onlyOwner {
+        whitelisted[token] = 0;
+    }
+
     function isWhitelisted(address token) public view returns (bool) {
         return whitelisted[token] > 0;
     }
 
     function sendToken(address token, uint256 amount) private {
-        require(isWhitelisted(token), "Barn Raise: not whitelisted.");
         IERC20(token).safeTransferFrom(msg.sender, custodian, amount);
     }
 
@@ -274,5 +289,15 @@ contract BarnRaise is Ownable, ReentrancyGuard {
                 sqrtPriceLimitX96: 0
             });
         amountOut = ISwapRouter(SWAP_ROUTER).exactInputSingle(params);
+    }
+
+    function getUsdcOut(uint ethAmount) external payable returns (uint256) {
+        return IQuoter(QUOTER).quoteExactInputSingle(
+            WETH,
+            USDC,
+            POOL_FEE,
+            ethAmount,
+            0
+        );
     }
 }

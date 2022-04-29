@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const fs = require('fs');
+const { takeSnapshot, revertToSnapshot } = require("./utils/snapshot.js");
 
 const BEAN = '0xDC59ac4FeFa32293A95889Dc396682858d52e5Db';
 const BF = '0x21DE18B6A8f78eDe6D16C50A167f6B222DC08DF7';
@@ -20,8 +21,7 @@ function to6(amount) {
 
 describe("Barn Raise", function () {
 
-  beforeEach(async function () {
-    await network.provider.request({ method: "hardhat_reset", params: [] });
+  before(async function () {
 
     [owner,user] = await ethers.getSigners();
 
@@ -35,7 +35,7 @@ describe("Barn Raise", function () {
     this.barnRaise = await BarnRaise.connect(owner).deploy([this.token.address]);
     await this.barnRaise.deployed()
 
-    await owner.sendTransaction({ to: BF, value: ethers.utils.parseEther("2") });
+    await owner.sendTransaction({ to: BF, value: ethers.utils.parseEther("10") });
     await hre.network.provider.request({ method: "hardhat_impersonateAccount", params: [BF] });
     const bf = await ethers.getSigner(BF)
 
@@ -48,6 +48,36 @@ describe("Barn Raise", function () {
     length = parseInt(await this.barnRaise.length())
     end = start + length;
   });
+
+  beforeEach(async function () {
+    snapshotId = await takeSnapshot();
+    this.amountOut = await this.barnRaise.callStatic.getUsdcOut(to18('1'))
+  });
+
+  afterEach(async function () {
+    await revertToSnapshot(snapshotId);
+  });
+
+  it ('reverts if weather too high', async function () {
+    await network.provider.send("evm_setNextBlockTimestamp", [start+1])
+    await expect(this.barnRaise.connect(user).createBid(this.token.address, to18('1'), '453')).to.be.revertedWith('Barn Raise: Weather too high.')
+  })
+
+  it ('sow reverts if token not whitelisted', async function () {
+    await network.provider.send("evm_setNextBlockTimestamp", [start+1])
+    await expect(this.barnRaise.connect(user).createBid(BF, to18('1'), '453')).to.be.reverted
+  })
+
+  it ('sow reverts if token not whitelisted', async function () {
+    await network.provider.send("evm_setNextBlockTimestamp", [start+1])
+    await expect(this.barnRaise.connect(user).sow(BF, to18('1'))).to.be.reverted
+  })
+
+  it ('update reverts if token not whitelisted', async function () {
+    await network.provider.send("evm_setNextBlockTimestamp", [start - 2])
+    await this.barnRaise.connect(user).createBid(this.token.address, to18('1'), '2');
+    await expect(this.barnRaise.connect(user).updateBid(BF, to6('2'), '2', start - 2, '1')).to.be.reverted
+  })
 
   it('Sow', async function () {
     await network.provider.send("evm_setNextBlockTimestamp", [start+1])
@@ -176,4 +206,22 @@ describe("Barn Raise", function () {
       await expect(this.barnRaise.updateBid(this.token.address, to18('1'), 100, '123', 110)).to.be.revertedWith('Barn Raise: Bidding not active.')
     })
   });
+
+  describe("Whitelist", async function () {
+    it('Owner whitelists', async function () {
+      await this.barnRaise.connect(owner).dewhitelist(this.token.address)
+      expect(await this.barnRaise.isWhitelisted(this.token.address)).to.be.equal(false);
+    })
+
+    it('Reverts if not owner', async function () {
+      await expect(this.barnRaise.connect(user).dewhitelist(this.token.address)).to.be.reverted
+      await expect(this.barnRaise.connect(user).whitelist(this.token.address)).to.be.reverted
+    })
+
+    it('Reverts if not owner', async function () {
+      await this.barnRaise.connect(owner).dewhitelist(this.token.address)
+      await this.barnRaise.connect(owner).whitelist(this.token.address)
+      expect(await this.barnRaise.isWhitelisted(this.token.address)).to.be.equal(true);
+    })
+  })
 });

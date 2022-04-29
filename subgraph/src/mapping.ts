@@ -34,7 +34,7 @@ export function handleCreateBid(event: CreateBid): void {
 
   let bid = createBid(
     event.block.timestamp,
-    biToBD(event.params.amount, BI_18),
+    biToBD(event.params.amount, BI_6),
     event.params.account,
     event.params.weather,
     event.params.idx,
@@ -66,7 +66,7 @@ export function handleUpdateBid(event: UpdateBid): void {
   let oldId = `${event.params.account.toHexString()}-${event.params.prevWeather}-${event.params.prevIdx}`
   let oldBid = Bid.load(oldId)!
 
-  let updatedAmount = biToBD(event.params.updatedAmount, BI_18)
+  let updatedAmount = biToBD(event.params.updatedAmount, BI_6)
   oldBid.updatedAt = event.block.timestamp
   oldBid.amount = oldBid.amount.minus(updatedAmount)
   oldBid.basePods = amountToPods(oldBid.amount, event.params.prevWeather)
@@ -91,7 +91,7 @@ export function handleUpdateBid(event: UpdateBid): void {
     oldWeather.bidIds = bidIds
   }
 
-  let addedAmount = biToBD(event.params.addedAmount, BI_18)
+  let addedAmount = biToBD(event.params.addedAmount, BI_6)
   barnRaise.totalRaised = barnRaise.totalRaised.plus(addedAmount)
   barnRaise.totalBid = barnRaise.totalBid.plus(addedAmount)
   barnRaise.totalBidUnsown = barnRaise.totalBidUnsown.plus(addedAmount)
