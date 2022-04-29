@@ -28,6 +28,11 @@ type BarnRaise @entity {
   totalSown: BigDecimal!
   # The total $ raised totalSown + totalBidUnsown
   totalRaised: BigDecimal!
+
+  # Last weather bids were filled
+  lastWeatherBidsFilled: BigInt!
+  # The total number of pods
+  totalPods: BigDecimal!
 }
 
 type Farmer @entity {
@@ -39,6 +44,12 @@ type Farmer @entity {
   numberOfBids: BigInt!
   # The number of Bids
   totalBid: BigDecimal!
+  # The Plots created by the Farmer
+  plots: [Plot!]! @derivedFrom(field: "farmer")
+  # The number of Plots
+  numberOfPlots: BigInt!
+  # The number of Pods
+  totalPods: BigDecimal!
 }
 
 type Bid @entity {
@@ -81,11 +92,26 @@ type Weather @entity {
   bidIds: [String!]!
   # Number of Bids
   numberOfBids: BigInt!
+  # Number of Sows
+  numberOfSows: BigInt!
   
   # The amount of tokens at the given Weather.
   amount: BigDecimal!
 
   basePods: BigDecimal!
   bonusPods: BigDecimal!
+  totalPods: BigDecimal!
+}
+
+type Plot @entity {
+  # Address + Plot index
+  id: ID!
+  # Farmer
+  farmer: Farmer!
+  # The $ amount of the plot
+  amount: BigDecimal!
+  # Place in the new pod line
+  placeInLine: BigDecimal!
+  # Pods in the plot
   totalPods: BigDecimal!
 }

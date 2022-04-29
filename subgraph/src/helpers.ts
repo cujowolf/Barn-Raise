@@ -1,6 +1,7 @@
 import { Address, BigDecimal, BigInt } from "@graphprotocol/graph-ts"
 
 export let ADDRESS_ZERO = Address.fromString('0x0000000000000000000000000000000000000000')
+export let BARN_RAISE_ADDRESS = Address.fromString('0x928969D2C9D7E6a91125f2DCc459Bf20D1E59E28')
 
 export let ZERO_BI = BigInt.fromI32(0)
 export let ONE_BI = BigInt.fromI32(1)

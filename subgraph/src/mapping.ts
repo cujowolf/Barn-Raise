@@ -6,14 +6,18 @@ import {
   Sow,
   UpdateBid
 } from "../generated/BarnRaise/BarnRaise"
-import { 
+import {
   BarnRaise as BarnRaiseEntity,
   Bid,
   Farmer,
+  Plot,
   Weather
 } from "../generated/schema"
-import { ADDRESS_ZERO, ZERO_BI, ONE_BI, ZERO_BD, ONE_BD, TWO_BI, BI_6, BI_10, BI_18, toBI, biToBD, BidStatus, EventType, EventStatus } from "./helpers"
+import { ADDRESS_ZERO, ZERO_BI, ONE_BI, ZERO_BD, ONE_BD, TWO_BI, BI_6, BI_10, BI_18, toBI, biToBD, BidStatus, EventType, EventStatus, BARN_RAISE_ADDRESS } from "./helpers"
 
+/* ========================
+    Event Handlers
+   ========================*/
 export function handleCreateBarnRaise(event: CreateBarnRaise): void {
   let br = BarnRaiseEntity.load('0')
   if (!br) {
@@ -25,11 +29,20 @@ export function handleCreateBarnRaise(event: CreateBarnRaise): void {
   br.length = event.params.length
   br.end = br.start.plus(br.length)
   br.weatherStep = event.params.weatherStep
+  br.numberOfBids = ZERO_BI
+  br.totalBid = ZERO_BD
+  br.totalBidSown = ZERO_BD
+  br.totalBidUnsown = ZERO_BD
+  br.totalUserSown = ZERO_BD
+  br.totalSown = ZERO_BD
+  br.totalRaised = ZERO_BD
+  br.lastWeatherBidsFilled = ZERO_BI
+  br.totalPods = ZERO_BD
   br.save()
 }
 
 export function handleCreateBid(event: CreateBid): void {
-  let farmer = getFarmer(event.params.account)
+  let farmer = loadOrCreateFarmer(event.params.account)
   let barnRaise = BarnRaiseEntity.load('0')!
 
   let bid = createBid(
@@ -53,20 +66,30 @@ export function handleCreateBid(event: CreateBid): void {
   barnRaise.save()
   farmer.save()
 
-  // To Do: IF WEATHER IS CURRENT WEATHER, THEN SOW
+  // Fill any bids if weather is at current weather
+  let barnRaiseContract = BarnRaise.bind(BARN_RAISE_ADDRESS)
+  let currentWeather = barnRaiseContract.try_getWeather()
+  if (!currentWeather.reverted) {
+    if (event.params.weather <= currentWeather.value) {
+      fillBids(event.block.timestamp, currentWeather.value)
+    }
+  }
 }
 
-export function handleSow(event: Sow): void {}
+export function handleSow(event: Sow): void {
+  fillBids(event.block.timestamp, event.params.weather)
+  recordPlot(event.block.timestamp, null, event)
+}
 
 export function handleUpdateBid(event: UpdateBid): void {
-  let farmer = getFarmer(event.params.account)
-  let oldWeather = getWeather(event.params.prevWeather)
+  let farmer = loadOrCreateFarmer(event.params.account)
+  let oldWeather = loadOrCreateWeather(event.params.prevWeather)
   let barnRaise = BarnRaiseEntity.load('0')!
 
   let oldId = `${event.params.account.toHexString()}-${event.params.prevWeather}-${event.params.prevIdx}`
   let oldBid = Bid.load(oldId)!
 
-  let updatedAmount = biToBD(event.params.updatedAmount, BI_6)
+  let updatedAmount = biToBD(event.params.alteredAmount, BI_6)
   oldBid.updatedAt = event.block.timestamp
   oldBid.amount = oldBid.amount.minus(updatedAmount)
   oldBid.basePods = amountToPods(oldBid.amount, event.params.prevWeather)
@@ -111,11 +134,72 @@ export function handleUpdateBid(event: UpdateBid): void {
   barnRaise.save()
   farmer.save()
 
-   // To Do: IF WEATHER IS CURRENT WEATHER, THEN SOW
+  // Fill any bids if weather is at current weather
+  let barnRaiseContract = BarnRaise.bind(BARN_RAISE_ADDRESS)
+  let currentWeather = barnRaiseContract.try_getWeather()
+  if (!currentWeather.reverted) {
+    if (event.params.newWeather <= currentWeather.value) {
+      fillBids(event.block.timestamp, currentWeather.value)
+    }
+  }
 }
 
+/* ========================
+    Entity Loading and Creating
+   ========================*/
+
+function loadOrCreateFarmer(address: Address): Farmer {
+  let farmer = Farmer.load(address.toHexString())
+  if (farmer == null) {
+    farmer = new Farmer(address.toHexString())
+    farmer.numberOfBids = ZERO_BI
+    farmer.totalBid = ZERO_BD
+    farmer.numberOfPlots = ZERO_BI
+    farmer.totalPods = ZERO_BD
+    farmer.save()
+  }
+
+  return farmer as Farmer
+}
+
+function loadOrCreateWeather(w: BigInt): Weather {
+  let weather = Weather.load(`${w}`)
+  if (weather == null) {
+    weather = new Weather(`${w}`)
+    weather.weather = w.toI32()
+    weather.bidIds = []
+    weather.numberOfBids = ZERO_BI
+    weather.numberOfSows = ZERO_BI
+    weather.amount = ZERO_BD
+    weather.basePods = ZERO_BD
+    weather.bonusPods = ZERO_BD
+    weather.totalPods = ZERO_BD
+    weather.save()
+  }
+  return weather as Weather
+}
+
+function loadOrCreatePlot(farmerAddress: Address): Plot {
+  let farmer = loadOrCreateFarmer(farmerAddress)
+  let id = farmerAddress.toHexString() + '-' + farmer.numberOfPlots.toString()
+  let plot = Plot.load(id)
+  if (plot == null) {
+    plot = new Plot(id)
+    plot.farmer = farmerAddress.toHexString()
+    plot.amount = ZERO_BD
+    plot.placeInLine = ZERO_BD
+    plot.totalPods = ZERO_BD
+    plot.save()
+  }
+  return plot as Plot
+}
+
+/* ========================
+    Internal Helpers
+   ========================*/
+
 function createBid(timestamp: BigInt, amount: BigDecimal, account: Address, wea: BigInt, idx: BigInt, bonus: BigInt): Bid {
-  let weather = getWeather(wea)
+  let weather = loadOrCreateWeather(wea)
   let id = `${account.toHexString()}-${wea}-${idx}`
   let bid = new Bid(id)
   bid.idx = idx
@@ -147,24 +231,83 @@ function createBid(timestamp: BigInt, amount: BigDecimal, account: Address, wea:
   weather.save()
   bid.save()
 
-  // TO DO: AUTO-SOW IF WEATHER = CURRENT WEATHER
   return bid
 }
 
-function getFarmer(address : Address) : Farmer {
-  let farmer = Farmer.load(address.toHexString())
-  if (farmer == null) return new Farmer(address.toHexString())
-  return farmer as Farmer
+function recordPlot(timestamp: BigInt, bid: Bid | null, sow: Sow | null): void {
+  let barnRaise = BarnRaiseEntity.load('0')!
+
+  if (bid != null) {
+    let farmerAddress = Address.fromString(bid.farmer)
+    let farmer = loadOrCreateFarmer(farmerAddress)
+    let plot = loadOrCreatePlot(farmerAddress)
+
+    bid.status = BidStatus.FILLED
+    bid.updatedAt = timestamp
+
+    plot.placeInLine = barnRaise.totalPods
+    plot.amount = bid.amount
+    plot.totalPods = bid.totalPods
+
+    farmer.numberOfPlots = farmer.numberOfPlots.plus(ONE_BI)
+    farmer.totalPods = farmer.totalPods.plus(plot.totalPods)
+
+    barnRaise.totalBidSown = barnRaise.totalBidSown.plus(plot.amount)
+    barnRaise.totalBidUnsown = barnRaise.totalBidUnsown.minus(plot.amount)
+    barnRaise.totalSown = barnRaise.totalSown.plus(plot.amount)
+    barnRaise.totalPods = barnRaise.totalPods.plus(plot.totalPods)
+
+    farmer.save()
+    bid.save()
+    plot.save()
+    barnRaise.save()
+  } else if (sow != null) {
+    let farmer = loadOrCreateFarmer(sow.params.account)
+    let plot = loadOrCreatePlot(sow.params.account)
+    let weather = loadOrCreateWeather(sow.params.weather)
+
+    plot.placeInLine = barnRaise.totalPods
+    plot.amount = biToBD(sow.params.amount, BI_6)
+    plot.totalPods = amountToPods(plot.amount, sow.params.weather)
+
+    weather.numberOfSows = weather.numberOfSows.plus(ONE_BI)
+    weather.amount = weather.amount.plus(plot.amount)
+    weather.basePods = weather.basePods.plus(plot.totalPods)
+    weather.totalPods = weather.totalPods.plus(plot.totalPods)
+
+    farmer.numberOfPlots = farmer.numberOfPlots.plus(ONE_BI)
+    farmer.totalPods = farmer.totalPods.plus(plot.totalPods)
+
+    barnRaise.totalUserSown = barnRaise.totalUserSown.plus(plot.amount)
+    barnRaise.totalSown = barnRaise.totalSown.plus(plot.amount)
+    barnRaise.totalRaised = barnRaise.totalRaised.plus(plot.amount)
+    barnRaise.totalPods = barnRaise.totalPods.plus(plot.totalPods)
+
+    farmer.save()
+    plot.save()
+    weather.save()
+    barnRaise.save()
+  }
 }
 
-function getWeather(w: BigInt) : Weather {
-  let weather = Weather.load(`${w}`)
-  if (weather == null) {
-    let wea = new Weather(`${w}`)
-    wea.weather = w.toI32()
-    return wea
+function fillBids(timestamp: BigInt, weather: BigInt): void {
+  let weatherCheck = BarnRaiseEntity.load('0')!
+  let lastWeather = weatherCheck.lastWeatherBidsFilled
+
+  while (lastWeather <= weather) {
+    let currentWeather = loadOrCreateWeather(lastWeather)
+    for (let i = 0; i < currentWeather.bidIds.length; i++) {
+      let bid = Bid.load(currentWeather.bidIds[i])!
+      if (bid.status == BidStatus.ACTIVE) {
+        recordPlot(timestamp, bid, null)
+      }
+    }
+    lastWeather = lastWeather.plus(ONE_BI)
   }
-  return weather as Weather
+
+  let barnRaise = BarnRaiseEntity.load('0')!
+  barnRaise.lastWeatherBidsFilled = lastWeather
+  barnRaise.save()
 }
 
 function amountToBonusPods(amount: BigDecimal, bonus: BigInt): BigDecimal {
