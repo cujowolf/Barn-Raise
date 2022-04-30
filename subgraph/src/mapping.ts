@@ -248,6 +248,7 @@ function recordPlot(timestamp: BigInt, bid: Bid | null, sow: Sow | null): void {
     plot.placeInLine = barnRaise.totalPods
     plot.amount = bid.amount
     plot.totalPods = bid.totalPods
+    plot.bid = bid.id
 
     farmer.numberOfPlots = farmer.numberOfPlots.plus(ONE_BI)
     farmer.totalPods = farmer.totalPods.plus(plot.totalPods)

@@ -75,6 +75,8 @@ type Bid @entity {
   # The sum of the base and bonus Weather
   totalWeather: Int!
 
+  # Plot the bid was records to
+  plot: Plot @derivedFrom(field: "bid")
   # The base amount of Pods (excluding bonus)
   basePods: BigDecimal!
   # The number of Bonus Pods
@@ -108,6 +110,8 @@ type Plot @entity {
   id: ID!
   # Farmer
   farmer: Farmer!
+  # Bid that this plot fills
+  bid: Bid
   # The $ amount of the plot
   amount: BigDecimal!
   # Place in the new pod line
